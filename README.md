@@ -1,5 +1,7 @@
 # KV
 
+[![Elixir CI](https://github.com/anasmirza534/elixir-kv-server/actions/workflows/elixir.yml/badge.svg)](https://github.com/anasmirza534/elixir-kv-server/actions/workflows/elixir.yml)
+
 A distributed key-value store built with Elixir, featuring TCP server interface and pub/sub capabilities for distributed nodes.
 
 ## Manual testing for distributed nodes
