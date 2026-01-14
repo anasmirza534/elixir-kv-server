@@ -23,6 +23,13 @@ defmodule KV.Bucket do
   end
 
   @doc """
+  Get keys count of a bucket
+  """
+  def count_keys(bucket) do
+    GenServer.call(bucket, {:count_keys})
+  end
+
+  @doc """
   Delete the `value` for the given `key` in the `bucket` and return `value`
   """
   def delete(bucket, key) do
@@ -39,8 +46,8 @@ defmodule KV.Bucket do
   @doc """
   Get connection count subscribed to bucket
   """
-  def conn_count(bucket) do
-    GenServer.call(bucket, {:conn_count})
+  def count_connections(bucket) do
+    GenServer.call(bucket, {:count_connections})
   end
 
   ### Callbacks
@@ -64,13 +71,18 @@ defmodule KV.Bucket do
     {:reply, :ok, state}
   end
 
+  def handle_call({:count_keys}, _from, state) do
+    key_size = state.bucket |> map_size()
+    {:reply, key_size, state}
+  end
+
   def handle_call({:delete, key}, _from, state) do
     {value, state} = pop_in(state.bucket[key])
     broadcast(state, {:delete, key})
     {:reply, value, state}
   end
 
-  def handle_call({:conn_count}, _from, state) do
+  def handle_call({:count_connections}, _from, state) do
     subbscriber_size = state.subscribers |> MapSet.size()
     {:reply, subbscriber_size, state}
   end

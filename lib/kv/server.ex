@@ -1,21 +1,27 @@
 defmodule KV.Server do
   require Logger
 
+  # main entrypint into server
   def accept(port) do
     {:ok, socket} =
       :gen_tcp.listen(port, [:binary, packet: :line, active: false, reuseaddr: true])
 
     Logger.info("Accepting connection on port #{port}")
 
+    # start accpeting connection loop
     load_acceptor(socket)
   end
 
   defp load_acceptor(socket) do
     {:ok, client} = :gen_tcp.accept(socket)
 
+    # create new process for each client to handle serving messages in and out
     {:ok, pid} =
       Task.Supervisor.start_child(KV.ServerSupervisor, fn -> serve(client) end)
 
+    # make sure current process is not responsible for client, so if it crashes,
+    # we still need to accept new connections. also this forward new messege
+    # coming in `client` to `pid`
     :ok = :gen_tcp.controlling_process(client, pid)
 
     load_acceptor(socket)

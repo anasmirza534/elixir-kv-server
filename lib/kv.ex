@@ -7,16 +7,24 @@ defmodule KV do
 
   @impl true
   def start(_type, _args) do
-    for node <- Application.fetch_env!(:kv, :nodes) do
+    port = Application.fetch_env!(:kv, :port)
+    nodes = Application.fetch_env!(:kv, :nodes)
+
+    for node <- nodes do
       Node.connect(node)
     end
 
-    port = Application.fetch_env!(:kv, :port)
-
     children = [
+      # start a registry called `KV`
       {Registry, name: KV, keys: :unique},
+
+      # start a dynamic supervisor that manages `Bucket` processes
       {DynamicSupervisor, name: KV.BucketSupervisor, strategy: :one_for_one},
+
+      # start task supervisor that manages client `serve` process
       {Task.Supervisor, name: KV.ServerSupervisor},
+
+      # finall start server entrypoint that handle incoming request
       Supervisor.child_spec({Task, fn -> KV.Server.accept(port) end}, restart: :permanent)
     ]
 
@@ -27,6 +35,7 @@ defmodule KV do
   Creates a bucket with the given name.
   """
   def create_bucket(name) do
+    # create and link new `Bucket` to dynamic supervisor
     DynamicSupervisor.start_child(KV.BucketSupervisor, {KV.Bucket, name: via(name)})
   end
 
@@ -39,5 +48,6 @@ defmodule KV do
     |> GenServer.whereis()
   end
 
+  # :global here is used for discovering process on distributed nodes
   defp via(name), do: {:via, :global, {KV, name}}
 end

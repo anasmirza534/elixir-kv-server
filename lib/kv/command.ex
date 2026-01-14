@@ -31,12 +31,13 @@ defmodule KV.Command do
   """
   def parse(line) do
     case String.split(line) do
-      ["SUBSCRIBE", bucket] -> {:ok, {:subscribe, bucket}}
       ["CREATE", bucket] -> {:ok, {:create, bucket}}
       ["GET", bucket, key] -> {:ok, {:get, bucket, key}}
       ["PUT", bucket, key, value] -> {:ok, {:put, bucket, key, value}}
+      ["COUNT_KEYS", bucket] -> {:ok, {:count_keys, bucket}}
       ["DELETE", bucket, key] -> {:ok, {:delete, bucket, key}}
-      ["CONN_COUNT", bucket] -> {:ok, {:conn_count, bucket}}
+      ["SUBSCRIBE", bucket] -> {:ok, {:subscribe, bucket}}
+      ["COUNT_CONNS", bucket] -> {:ok, {:count_connections, bucket}}
       _ -> {:error, :unknown_command}
     end
   end
@@ -45,14 +46,6 @@ defmodule KV.Command do
   Runs the given command.
   """
   def run(command, socket)
-
-  def run({:subscribe, bucket}, socket) do
-    lookup(bucket, fn pid ->
-      KV.Bucket.subscribe(pid)
-      :inet.setopts(socket, active: true)
-      receive_messages(socket)
-    end)
-  end
 
   def run({:create, bucket}, socket) do
     KV.create_bucket(bucket)
@@ -76,6 +69,14 @@ defmodule KV.Command do
     end)
   end
 
+  def run({:count_keys, bucket}, socket) do
+    lookup(bucket, fn pid ->
+      value = KV.Bucket.count_keys(pid)
+      :gen_tcp.send(socket, "#{value}\r\nOK\r\n")
+      :ok
+    end)
+  end
+
   def run({:delete, bucket, key}, socket) do
     lookup(bucket, fn pid ->
       KV.Bucket.delete(pid, key)
@@ -84,9 +85,19 @@ defmodule KV.Command do
     end)
   end
 
-  def run({:conn_count, bucket}, socket) do
+  def run({:subscribe, bucket}, socket) do
     lookup(bucket, fn pid ->
-      value = KV.Bucket.conn_count(pid)
+      KV.Bucket.subscribe(pid)
+
+      :inet.setopts(socket, active: true)
+
+      receive_messages(socket)
+    end)
+  end
+
+  def run({:count_connections, bucket}, socket) do
+    lookup(bucket, fn pid ->
+      value = KV.Bucket.count_connections(pid)
       :gen_tcp.send(socket, "#{value}\r\nOK\r\n")
       :ok
     end)
